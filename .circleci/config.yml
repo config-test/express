@@ -1,0 +1,30 @@
+version: 2.1
+
+jobs:
+  express:
+    docker:
+      - image: cimg/node:26.11
+    steps:
+      - checkout
+      # This repo disables lockfiles in .npmrc; cache npm downloads instead.
+      - restore_cache:
+          keys:
+            - v1-npm-node26.11-{{ checksum "package.json" }}-{{ checksum ".npmrc" }}
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: v1-npm-node26.11-{{ checksum "package.json" }}-{{ checksum ".npmrc" }}
+          paths:
+            - ~/.npm
+      - run:
+          name: Test
+          command: npm test
+      - run:
+          name: Lint
+          command: npm run lint
+
+workflows:
+  ci:
+    jobs:
+      - express
