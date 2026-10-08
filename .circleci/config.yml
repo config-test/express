@@ -1,0 +1,78 @@
+version: 2.1
+
+# Single-project Node.js repo (express). Detected from the only tracked manifest:
+# ./package.json  -> npm, engines.node ">= 18", scripts: lint / test / test-ci.
+#
+# NOTE: this repo intentionally has no lockfile (.npmrc sets `package-lock=false`
+# and .gitignore excludes package-lock.json), so dependency caching is keyed on
+# the checksum of package.json and `npm install` is used instead of `npm ci`.
+
+commands:
+  install-deps:
+    description: Restore the npm cache, install dependencies, save the cache.
+    parameters:
+      cache-key:
+        type: string
+    steps:
+      - restore_cache:
+          keys:
+            - v1-npm-<< parameters.cache-key >>-{{ checksum "package.json" }}
+            - v1-npm-<< parameters.cache-key >>-
+      - run:
+          name: Install dependencies (npm install - no lockfile in this repo)
+          command: npm install
+      - save_cache:
+          key: v1-npm-<< parameters.cache-key >>-{{ checksum "package.json" }}
+          paths:
+            - ~/.npm
+
+jobs:
+  lint:
+    docker:
+      # eslint 8.47.0 (devDependency); run on the repo's newest supported LTS.
+      - image: cimg/node:22.14.0
+    working_directory: ~/express
+    steps:
+      - checkout
+      - install-deps:
+          cache-key: lint-node22
+      - run:
+          name: npm run lint
+          command: npm run lint
+
+  test:
+    parameters:
+      node-version:
+        type: string
+    docker:
+      - image: cimg/node:<< parameters.node-version >>
+    working_directory: ~/express
+    steps:
+      - checkout
+      - run:
+          name: Versions
+          command: node --version && npm --version
+      - install-deps:
+          cache-key: test-node<< parameters.node-version >>
+      - run:
+          name: npm run test-ci (mocha via nyc, lcov coverage)
+          command: npm run test-ci
+      - store_artifacts:
+          path: coverage
+          destination: coverage-node-<< parameters.node-version >>
+
+workflows:
+  build-and-test:
+    jobs:
+      # All jobs are independent and run in parallel - no `requires` edges.
+      - lint
+      - test:
+          name: test-node-<< matrix.node-version >>
+          matrix:
+            parameters:
+              # engines.node is ">= 18"; one job per currently supported major.
+              node-version:
+                - "18.20.4"
+                - "20.18.1"
+                - "22.14.0"
+                - "24.0.0"
