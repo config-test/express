@@ -1,0 +1,39 @@
+version: 2.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:24.9
+    steps:
+      - checkout
+
+      # No lockfile is committed (.npmrc sets package-lock=false), so the cache
+      # key is based on package.json instead.
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "package.json" }}
+            - v1-npm-
+
+      - run:
+          name: Install dependencies
+          command: npm install
+
+      - run:
+          name: Output Node and npm versions
+          command: |
+            echo "Node.js version: $(node -v)"
+            echo "npm version: $(npm -v)"
+
+      - run:
+          name: Run tests
+          command: npm test
+
+      - save_cache:
+          key: v1-npm-{{ checksum "package.json" }}
+          paths:
+            - ~/.npm
+
+workflows:
+  ci:
+    jobs:
+      - test
