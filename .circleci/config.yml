@@ -1,0 +1,39 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/node:26.11
+    steps:
+      - checkout
+
+      # No lockfile is committed (package-lock=false / lockfiles gitignored).
+      # Cache key falls back to package.json.
+      - restore_cache:
+          keys:
+            - v1-npm-deps-{{ checksum "package.json" }}
+            - v1-npm-deps-
+
+      - run:
+          name: Install dependencies
+          command: npm install
+
+      - save_cache:
+          key: v1-npm-deps-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+
+      # No build script in package.json — skipped.
+
+      - run:
+          name: Run tests
+          command: npm run test-ci
+
+      - run:
+          name: Run lint
+          command: npm run lint
+
+workflows:
+  build-test-lint:
+    jobs:
+      - build-and-test
