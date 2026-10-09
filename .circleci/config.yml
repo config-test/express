@@ -1,0 +1,31 @@
+version: 2.1
+
+jobs:
+  express:
+    docker:
+      - image: cimg/node:26.11
+    steps:
+      - checkout
+      # Lockfiles are disabled by .npmrc; cache npm downloads by manifest.
+      - restore_cache:
+          keys:
+            - v1-npm-node26.11-{{ checksum "package.json" }}-{{ checksum ".npmrc" }}
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: v1-npm-node26.11-{{ checksum "package.json" }}-{{ checksum ".npmrc" }}
+          paths:
+            - ~/.npm
+      # This package has no build script.
+      - run:
+          name: Test
+          command: npm test
+      - run:
+          name: Lint
+          command: npm run lint
+
+workflows:
+  check:
+    jobs:
+      - express
