@@ -1,0 +1,35 @@
+version: 2.1
+
+jobs:
+  express:
+    docker:
+      # Node 26 is the newest version the repo's CI matrix covered; package.json
+      # requires ">= 18". cimg has no major-only tags, so pin major.minor.
+      - image: cimg/node:26.11
+    steps:
+      - checkout
+      # No lockfile is committed (.npmrc sets package-lock=false), so the cache
+      # is keyed on package.json and we cache npm's download cache, not node_modules.
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "package.json" }}
+            - v1-npm-
+      - run:
+          name: Install dependencies
+          command: npm install
+      - save_cache:
+          key: v1-npm-{{ checksum "package.json" }}
+          paths:
+            - ~/.npm
+      # No build script in package.json, so there is no build step.
+      - run:
+          name: Test
+          command: npm run test-ci
+      - run:
+          name: Lint
+          command: npm run lint
+
+workflows:
+  ci:
+    jobs:
+      - express
